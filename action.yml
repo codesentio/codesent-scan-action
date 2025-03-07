@@ -60,7 +60,7 @@ runs:
         echo "report_url=$(echo $RESPONSE | jq -r '.online_report')" >> $GITHUB_ENV
 
     - name: Comment on PR with results
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request_target'
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
