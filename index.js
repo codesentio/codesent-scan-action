@@ -9,6 +9,13 @@ async function run() {
         const apiKey = core.getInput('api-key');
         const githubToken = core.getInput('github-token');
 
+        console.log(`🔍 Received API Key: ${apiKey ? '✅ Key received' : '❌ Key missing'}`);
+        console.log(`🔍 Received GitHub Token: ${githubToken ? '✅ Token received' : '❌ Token missing'}`);
+
+        if (!apiKey) {
+            throw new Error("API Key is missing! Make sure 'CODESENT_API_KEY' is set in GitHub Action Secrets.");
+        }
+
         // Archive the repo
         console.log('📦 Zipping repository...');
         const zip = new AdmZip();
