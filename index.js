@@ -36,8 +36,8 @@ async function run() {
             formData,
             {
                 headers: {
-                    ...headers, // Authorization остается
-                    ...formData.getHeaders(), // Добавляем заголовки для multipart/form-data
+                    ...headers,
+                    ...formData.getHeaders(),
                 },
             }
         );
@@ -73,28 +73,38 @@ async function run() {
         const severityStats = results.severity_stats;
 
         console.log(`📊 Scan completed. Found ${issueCount} issues.`);
+        console.log(`🔗 Report URL: ${reportUrl}`);
 
         let severityText = Object.entries(severityStats)
             .map(([severity, count]) => `- **${severity}**: ${count}`)
             .join('\n');
 
-        // 💬 Comment on PR
         const octokit = github.getOctokit(githubToken);
         const { context } = github;
 
+        // 📝 Create GitHub Issue if this is a push to `main`
+        if (context.eventName === 'push' && context.ref === 'refs/heads/main') {
+            console.log(`📌 Creating GitHub Issue with scan results...`);
+            await octokit.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🔍 CodeSent Scan Report - ${new Date().toISOString().split('T')[0]}`,
+                body: `## CodeSent Scan Results\n\n**Total Issues**: ${issueCount}\n\n**Severity Breakdown:**\n${severityText}\n\n📊 [View Full Report](${reportUrl})`,
+                labels: ["security"]
+            });
+            console.log('✅ Issue created successfully!');
+        }
+
+        // 💬 Comment on PR if this is a pull request
         if (context.payload.pull_request) {
             const prNumber = context.payload.pull_request.number;
-            const repo = context.repo.repo;
-            const owner = context.repo.owner;
-
             console.log(`💬 Posting comment to PR #${prNumber}...`);
             await octokit.rest.issues.createComment({
-                owner,
-                repo,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
                 issue_number: prNumber,
                 body: `🔍 **CodeSent Scan Completed**\n\n**Total Issues**: ${issueCount}\n\n**Severity Breakdown:**\n${severityText}\n📊 [View Full Report](${reportUrl})`
             });
-
             console.log('✅ Comment posted successfully!');
         }
     } catch (error) {
