@@ -3,6 +3,7 @@ const github = require('@actions/github');
 const fs = require('fs-extra');
 const AdmZip = require('adm-zip');
 const { HttpClient } = require('@actions/http-client');
+const FormData = require('form-data');
 
 async function run() {
     try {
@@ -28,8 +29,19 @@ async function run() {
 
         // 🚀 Upload ZIP to CodeSent
         console.log('🚀 Uploading ZIP to CodeSent...');
-        const zipFileStream = fs.createReadStream(zipPath);
-        const uploadResponse = await client.post("https://codesent.io/api/scan/v1/upload", zipFileStream, headers);
+        const formData = new FormData();
+        formData.append("file", fs.createReadStream(zipPath));
+
+        const uploadHeaders = {
+            ...headers, // Authorization остается
+            ...formData.getHeaders(), // Добавляем заголовки для multipart/form-data
+        };
+
+        const uploadResponse = await client.post(
+            "https://codesent.io/api/scan/v1/upload",
+            formData.getBuffer(),
+            uploadHeaders
+        );
 
         if (uploadResponse.message.statusCode !== 200) {
             throw new Error(`Upload failed with status code ${uploadResponse.message.statusCode}`);
