@@ -1,5 +1,5 @@
 name: "CodeSent Scan Action"
-description: "Uploads API proxies to CodeSent for security scanning and comments results in PR."
+description: "Uploads Apigee API proxies to CodeSent for security scanning and comments results in PR."
 author: "Nikita Markevich @ CodeSent"
 
 inputs:
@@ -15,73 +15,5 @@ permissions:
   pull-requests: write
 
 runs:
-  using: "composite"
-  steps:
-    - name: Zip repository
-      shell: bash
-      run: zip -r proxy.zip .
-
-    - name: Upload proxy to CodeSent
-      id: upload
-      shell: bash
-      run: |
-        RESPONSE=$(curl -s -X POST "https://codesent.io/api/scan/v1/upload" \
-          -H "Authorization: Bearer ${{ inputs.api-key }}" \
-          -F "file=@proxy.zip")
-        echo "proxy_uuid=$(echo $RESPONSE | jq -r '.proxy_uuid')" >> $GITHUB_ENV
-
-    - name: Validate proxy
-      id: validate
-      shell: bash
-      run: |
-        RESPONSE=$(curl -s -X POST "https://codesent.io/api/scan/v1/${{ env.proxy_uuid }}/validate" \
-          -H "Authorization: Bearer ${{ inputs.api-key }}")
-        echo "task_uuid=$(echo $RESPONSE | jq -r '.task_uuid')" >> $GITHUB_ENV
-
-    - name: Check validation status
-      shell: bash
-      run: |
-        while true; do
-          RESPONSE=$(curl -s -X POST "https://codesent.io/api/scan/v1/${{ env.proxy_uuid }}/${{ env.task_uuid }}/status" \
-            -H "Authorization: Bearer ${{ inputs.api-key }}")
-          STATUS=$(echo $RESPONSE | jq -r '.status')
-          echo "Current status: $STATUS"
-          if [[ "$STATUS" == "done" ]]; then break; fi
-          if [[ "$STATUS" == "failed" || "$STATUS" == "error" ]]; then exit 1; fi
-          sleep 5
-        done
-
-    - name: Get validation results
-      id: results
-      shell: bash
-      run: |
-        RESPONSE=$(curl -s -X POST "https://codesent.io/api/scan/v1/${{ env.proxy_uuid }}/${{ env.task_uuid }}/results" \
-          -H "Authorization: Bearer ${{ inputs.api-key }}")
-        
-        # Extract key statistics
-        echo "report_url=$(echo $RESPONSE | jq -r '.online_report')" >> $GITHUB_ENV
-        echo "issue_count=$(echo $RESPONSE | jq -r '.issue_count')" >> $GITHUB_ENV
-        echo "severity_stats=$(echo $RESPONSE | jq -c '.severity_stats')" >> $GITHUB_ENV
-
-    - name: Format severity breakdown
-      id: format_severity
-      shell: bash
-      run: |
-        SEVERITY_TEXT=""
-        for key in $(echo $severity_stats | jq -r 'keys[]'); do
-          count=$(echo $severity_stats | jq -r ".[\"$key\"]")
-          SEVERITY_TEXT+="\n- **$key**: $count"
-        done
-        echo "severity_text=$SEVERITY_TEXT" >> $GITHUB_ENV
-
-    - name: Comment on PR with results
-      if: github.event_name == 'pull_request'
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
-        PR_URL: ${{ github.event.pull_request.html_url }}
-      run: |
-        gh pr comment $PR_URL --body "🔍 **CodeSent Scan Completed**  
-        - **Total Issues**: ${{ env.issue_count }}  
-        - **Severity Breakdown:** ${{ env.severity_text }}  
-        [📊 View Full Report](${{ env.report_url }})"
+  using: "node20"
+  main: "index.js"

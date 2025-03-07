@@ -1,0 +1,13 @@
+{
+    "name": "codesent-scan-action",
+    "version": "1.1-alpha",
+    "description": "GitHub Action for scanning Apigee proxies with CodeSent",
+    "main": "index.js",
+    "dependencies": {
+      "@actions/core": "^1.11.1",
+      "@actions/github": "^5.1.1",
+      "axios": "^1.3.5",
+      "adm-zip": "^0.5.16"
+    }
+  }
+  
