@@ -6,6 +6,9 @@ inputs:
   api-key:
     description: "CodeSent API Key"
     required: true
+  github-token:
+    description: "GitHub Token for commenting on PR"
+    required: true
 
 permissions:
   contents: read
