@@ -57,14 +57,31 @@ runs:
       run: |
         RESPONSE=$(curl -s -X POST "https://codesent.io/api/scan/v1/${{ env.proxy_uuid }}/${{ env.task_uuid }}/results" \
           -H "Authorization: Bearer ${{ inputs.api-key }}")
+        
+        # Extract key statistics
         echo "report_url=$(echo $RESPONSE | jq -r '.online_report')" >> $GITHUB_ENV
+        echo "issue_count=$(echo $RESPONSE | jq -r '.issue_count')" >> $GITHUB_ENV
+        echo "severity_stats=$(echo $RESPONSE | jq -c '.severity_stats')" >> $GITHUB_ENV
+
+    - name: Format severity breakdown
+      id: format_severity
+      shell: bash
+      run: |
+        SEVERITY_TEXT=""
+        for key in $(echo $severity_stats | jq -r 'keys[]'); do
+          count=$(echo $severity_stats | jq -r ".[\"$key\"]")
+          SEVERITY_TEXT+="\n- **$key**: $count"
+        done
+        echo "severity_text=$SEVERITY_TEXT" >> $GITHUB_ENV
 
     - name: Comment on PR with results
-      if: github.event_name == 'pull_request_target'
+      if: github.event_name == 'pull_request'
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         PR_URL: ${{ github.event.pull_request.html_url }}
       run: |
         gh pr comment $PR_URL --body "🔍 **CodeSent Scan Completed**  
-        [📊 View Report](${{ env.report_url }})"
+        - **Total Issues**: ${{ env.issue_count }}  
+        - **Severity Breakdown:** ${{ env.severity_text }}  
+        [📊 View Full Report](${{ env.report_url }})"
