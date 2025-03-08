@@ -20,11 +20,12 @@ async function run() {
         const headers = { Authorization: `Bearer ${apiKey}` };
 
         const branch = github.context.payload.pull_request
-            ? github.context.payload.pull_request.head.ref 
-            : github.context.ref.replace("refs/heads/", ""); 
+            ? github.context.payload.pull_request.head.ref
+            : github.context.ref.replace("refs/heads/", "");
+
+        const commitHash = github.context.sha;
         const defaultBranch = github.context.payload.repository.default_branch;
         const isDefaultBranch = branch === defaultBranch;
-        const commitHash = github.context.sha;
 
         console.log(`🌿 Branch: ${branch}`);
         console.log(`🔗 Commit: ${commitHash}`);
@@ -36,7 +37,7 @@ async function run() {
         zip.addLocalFolder('.');
         zip.writeZip(zipPath);
 
-        // 🚀 Upload ZIP to CodeSent 
+        // 🚀 Upload ZIP to CodeSent
         console.log('🚀 Uploading ZIP to CodeSent...');
         const formData = new FormData();
         formData.append("file", fs.createReadStream(zipPath));
@@ -44,41 +45,63 @@ async function run() {
         formData.append("commit_hash", commitHash);
         formData.append("is_default_branch", isDefaultBranch.toString());
 
-        const uploadResponse = await axios.post(
-            "https://codesent.io/api/scan/v1/upload",
-            formData,
-            {
-                headers: {
-                    ...headers,
-                    ...formData.getHeaders(),
-                },
-            }
-        );
+        let uploadResponse;
+        try {
+            uploadResponse = await axios.post(
+                "https://codesent.io/api/scan/v1/upload",
+                formData,
+                {
+                    headers: {
+                        ...headers,
+                        ...formData.getHeaders(),
+                    },
+                }
+            );
+        } catch (error) {
+            handleApiError(error, "Uploading ZIP failed");
+            return;
+        }
 
         const proxyUuid = uploadResponse.data.proxy_uuid;
         console.log(`✅ Uploaded! Proxy UUID: ${proxyUuid}`);
 
         // 🔍 Start validation
         console.log('🔍 Starting validation...');
-        const validateResponse = await axios.post(`https://codesent.io/api/scan/v1/${proxyUuid}/validate`, null, { headers });
+        let validateResponse;
+        try {
+            validateResponse = await axios.post(`https://codesent.io/api/scan/v1/${proxyUuid}/validate`, null, { headers });
+        } catch (error) {
+            handleApiError(error, "Validation failed");
+            return;
+        }
 
         const taskUuid = validateResponse.data.task_uuid;
         console.log(`✅ Validation started. Task UUID: ${taskUuid}`);
 
         // 🔄 Poll for scan status
         let status;
-        do {
-            await new Promise(res => setTimeout(res, 5000));
-            const statusResponse = await axios.post(`https://codesent.io/api/scan/v1/${proxyUuid}/${taskUuid}/status`, null, { headers });
-
-            status = statusResponse.data.status;
-            console.log(`🔄 Scan status: ${status}`);
-        } while (status !== 'done');
+        try {
+            do {
+                await new Promise(res => setTimeout(res, 5000));
+                const statusResponse = await axios.post(`https://codesent.io/api/scan/v1/${proxyUuid}/${taskUuid}/status`, null, { headers });
+                status = statusResponse.data.status;
+                console.log(`🔄 Scan status: ${status}`);
+            } while (status !== 'done');
+        } catch (error) {
+            handleApiError(error, "Polling for scan status failed");
+            return;
+        }
 
         console.log('✅ Scan completed! Fetching results...');
 
         // 📊 Get scan results
-        const resultsResponse = await axios.post(`https://codesent.io/api/scan/v1/${proxyUuid}/${taskUuid}/results`, null, { headers });
+        let resultsResponse;
+        try {
+            resultsResponse = await axios.post(`https://codesent.io/api/scan/v1/${proxyUuid}/${taskUuid}/results`, null, { headers });
+        } catch (error) {
+            handleApiError(error, "Fetching scan results failed");
+            return;
+        }
 
         const results = resultsResponse.data;
         const reportUrl = results.online_report;
@@ -128,6 +151,18 @@ async function run() {
         }
     } catch (error) {
         core.setFailed(`❌ Error: ${error.message}`);
+    }
+}
+
+function handleApiError(error, action) {
+    if (error.response) {
+        const status = error.response.status;
+        const errorMessage = error.response.data?.error || "Unknown API error";
+        console.error(`❌ ${action}: API returned ${status} - ${errorMessage}`);
+        core.setFailed(`❌ ${action}: API returned ${status} - ${errorMessage}`);
+    } else {
+        console.error(`❌ ${action}: ${error.message}`);
+        core.setFailed(`❌ ${action}: ${error.message}`);
     }
 }
 
