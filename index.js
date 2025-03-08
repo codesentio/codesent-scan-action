@@ -19,6 +19,13 @@ async function run() {
 
         const headers = { Authorization: `Bearer ${apiKey}` };
 
+        // 🏷️ Получаем текущую ветку и хэш коммита
+        const branch = github.context.ref.replace("refs/heads/", "");
+        const commitHash = github.context.sha;
+
+        console.log(`🌿 Branch: ${branch}`);
+        console.log(`🔗 Commit: ${commitHash}`);
+
         // 📦 Archive the repo
         console.log('📦 Zipping repository...');
         const zipPath = './proxy.zip';
@@ -26,10 +33,12 @@ async function run() {
         zip.addLocalFolder('.');
         zip.writeZip(zipPath);
 
-        // 🚀 Upload ZIP to CodeSent
+        // 🚀 Upload ZIP to CodeSent (с branch и commit_hash)
         console.log('🚀 Uploading ZIP to CodeSent...');
         const formData = new FormData();
         formData.append("file", fs.createReadStream(zipPath));
+        formData.append("branch", branch);
+        formData.append("commit_hash", commitHash);
 
         const uploadResponse = await axios.post(
             "https://codesent.io/api/scan/v1/upload",
@@ -82,14 +91,20 @@ async function run() {
         const octokit = github.getOctokit(githubToken);
         const { context } = github;
 
+        // 📝 Define Issue Title (use PR title if available)
+        let issueTitle = `🔍 CodeSent Scan Report - ${new Date().toISOString().split('T')[0]}`;
+        if (context.payload.pull_request) {
+            issueTitle = `🔍 CodeSent Scan Report for PR: "${context.payload.pull_request.title}"`;
+        }
+
         // 📝 Create GitHub Issue if this is a push to `main`
-        if (context.eventName === 'push' && context.ref === 'refs/heads/main') {
+        if (context.eventName === 'push') {
             console.log(`📌 Creating GitHub Issue with scan results...`);
             await octokit.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: `🔍 CodeSent Scan Report - ${new Date().toISOString().split('T')[0]}`,
-                body: `## CodeSent Scan Results\n\n**Total Issues**: ${issueCount}\n\n**Severity Breakdown:**\n${severityText}\n\n📊 [View Full Report](${reportUrl})`,
+                title: issueTitle,
+                body: `## CodeSent Scan Results\n\n**Branch**: \`${branch}\`\n**Commit**: \`${commitHash}\`\n\n**Total Issues**: ${issueCount}\n\n**Severity Breakdown:**\n${severityText}\n\n📊 [View Full Report](${reportUrl})`,
                 labels: ["security"]
             });
             console.log('✅ Issue created successfully!');
@@ -103,7 +118,7 @@ async function run() {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
-                body: `🔍 **CodeSent Scan Completed**\n\n**Total New Issues**: ${issueCount}\n\n**Severity Breakdown:**\n${severityText}\n📊 [View Full Report](${reportUrl})`
+                body: `🔍 **CodeSent Scan Completed**\n\n**Branch**: \`${branch}\`\n**Commit**: \`${commitHash}\`\n\n**Total Issues**: ${issueCount}\n\n**Severity Breakdown:**\n${severityText}\n📊 [View Full Report](${reportUrl})`
             });
             console.log('✅ Comment posted successfully!');
         }
