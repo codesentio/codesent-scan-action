@@ -9,29 +9,92 @@ async function run() {
     try {
         const apiKey = core.getInput('api-key');
         const githubToken = core.getInput('github-token');
-        const proxyDirectory = core.getInput('proxy-directory') || 'apiproxy';
-
+        const uploadType = core.getInput('upload-type') || 'proxy';
+        
+        
         console.log(`🔍 Received API Key: ${apiKey ? '✅ Key received' : '❌ Key missing'}`);
         console.log(`🔍 Received GitHub Token: ${githubToken ? '✅ Token received' : '❌ Token missing'}`);
-        console.log(`📂 Proxy Directory: ${proxyDirectory}`);
-
+        
         if (!apiKey) {
             throw new Error("API Key is missing! Make sure 'CODESENT_API_KEY' is set in GitHub Secrets.");
         }
-
+        
         const headers = { Authorization: `Bearer ${apiKey}` };
-
+        
         const branch = github.context.payload.pull_request
-            ? github.context.payload.pull_request.head.ref
-            : github.context.ref.replace("refs/heads/", "");
-
+                    ? github.context.payload.pull_request.head.ref
+                    : github.context.ref.replace("refs/heads/", "");
+        
         const commitHash = github.context.sha;
-        const defaultBranch = github.context.payload.repository.default_branch;
-        const isDefaultBranch = branch === defaultBranch;
-
+        
         console.log(`🌿 Branch: ${branch}`);
         console.log(`🔗 Commit: ${commitHash}`);
 
+        const defaultBranch = github.context.payload.repository.default_branch;
+        const isDefaultBranch = branch === defaultBranch;
+        
+        if ((uploadType === 'sharedflow' || uploadType === 'mask_config') && !isDefaultBranch) {
+            core.setFailed(`❌ ${uploadType} can only be uploaded from the default branch (${defaultBranch}).`);
+            return;
+        }
+        
+        if (uploadType === 'mask_config') {
+            const maskFile = core.getInput('mask-file') || 'mask.xml';
+            if (!fs.existsSync(maskFile)) {
+                core.setFailed(`❌ Mask Config file '${maskFile}' not found.`);
+                return;
+            }
+            
+            console.log(`🚀 Uploading 'mask_config' from file '${maskFile}'...`);
+            
+            const xmlString = fs.readFileSync(maskFile, "utf-8");
+            const formData = new URLSearchParams();
+            formData.append("xml_string", xmlString);
+            
+            try {
+                await axios.post("https://codesent.io/api/scan/v1/mask_config/upload", formData.toString(), {
+                    headers: {
+                        ...headers,
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                });
+                
+                console.log("✅ Mask Config uploaded successfully.");
+            } catch (error) {
+                handleApiError(error, "Uploading Mask Config failed");
+                return;
+            }
+            
+            return;
+        }
+        
+        if (uploadType === 'sharedflow') {
+            console.log('🚀 Uploading SharedFlow to CodeSent...');
+            const zipPath = await createZip('.');
+            const formData = new FormData();
+            formData.append("file", fs.createReadStream(zipPath));
+            formData.append("branch", branch);
+            formData.append("commit_hash", commitHash);
+            formData.append("is_default_branch", isDefaultBranch.toString());
+            
+            try {
+                await axios.post("https://codesent.io/api/scan/v1/sharedflow/upload", formData, {
+                    headers: {
+                        ...headers,
+                        ...formData.getHeaders(),
+                    },
+                });
+                
+                console.log("✅ SharedFlow uploaded successfully.");
+            } catch (error) {
+                handleApiError(error, "Uploading SharedFlow failed");
+                return;
+            }
+            
+            return;
+        }
+        
+        const proxyDirectory = core.getInput('proxy-directory') || 'apiproxy';
         if (!fs.existsSync(proxyDirectory)) {
             throw new Error(`Proxy directory '${proxyDirectory}' not found!`);
         }
@@ -86,8 +149,15 @@ async function run() {
 
         // 🔄 Poll for scan status
         let status;
+        const pollingTimeout = parseInt(core.getInput('polling-timeout') || "300", 10) * 1000;
+        const pollingStartTime = Date.now();
+
         try {
             do {
+                if (Date.now() - pollingStartTime > pollingTimeout) {
+                    throw new Error(`Scan timed out after ${pollingTimeout / 1000} seconds.`);
+                }
+
                 await new Promise(res => setTimeout(res, 5000));
                 const statusResponse = await axios.post(`https://codesent.io/api/scan/v1/${proxyUuid}/${taskUuid}/status`, null, { headers });
                 status = statusResponse.data.status;

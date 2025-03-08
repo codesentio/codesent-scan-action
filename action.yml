@@ -13,6 +13,18 @@ inputs:
     description: "Path to the Apigee proxy directory (default: apiproxy)"
     required: false
     default: "apiproxy"
+  upload-type:
+    description: "Type of upload: proxy, sharedflow, or mask_config"
+    required: false
+    default: "proxy"
+  mask-file:
+    description: "Path to the mask configuration XML file (only for mask_config)"
+    required: false
+    default: "mask.xml"
+  polling-timeout:
+    description: "Maximum wait time for proxy scan completion (in seconds)"
+    required: false
+    default: "300"
 
 permissions:
   contents: read
