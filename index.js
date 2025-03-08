@@ -22,6 +22,8 @@ async function run() {
         const branch = github.context.payload.pull_request
             ? github.context.payload.pull_request.head.ref 
             : github.context.ref.replace("refs/heads/", ""); 
+        const defaultBranch = github.context.payload.repository.default_branch;
+        const isDefaultBranch = branch === defaultBranch;
         const commitHash = github.context.sha;
 
         console.log(`🌿 Branch: ${branch}`);
@@ -34,12 +36,13 @@ async function run() {
         zip.addLocalFolder('.');
         zip.writeZip(zipPath);
 
-        // 🚀 Upload ZIP to CodeSent (с branch и commit_hash)
+        // 🚀 Upload ZIP to CodeSent 
         console.log('🚀 Uploading ZIP to CodeSent...');
         const formData = new FormData();
         formData.append("file", fs.createReadStream(zipPath));
         formData.append("branch", branch);
         formData.append("commit_hash", commitHash);
+        formData.append("is_default_branch", isDefaultBranch);
 
         const uploadResponse = await axios.post(
             "https://codesent.io/api/scan/v1/upload",
