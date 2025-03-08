@@ -103,7 +103,7 @@ async function run() {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
-                body: `🔍 **CodeSent Scan Completed**\n\n**Total Issues**: ${issueCount}\n\n**Severity Breakdown:**\n${severityText}\n📊 [View Full Report](${reportUrl})`
+                body: `🔍 **CodeSent Scan Completed**\n\n**Total New Issues**: ${issueCount}\n\n**Severity Breakdown:**\n${severityText}\n📊 [View Full Report](${reportUrl})`
             });
             console.log('✅ Comment posted successfully!');
         }
