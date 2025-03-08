@@ -23,7 +23,7 @@ async function run() {
             ? github.context.payload.pull_request.head.ref 
             : github.context.ref.replace("refs/heads/", ""); 
         const defaultBranch = github.context.payload.repository.default_branch;
-        const isDefaultBranch = branch === defaultBranch;
+        const isDefaultBranch = 'true' ? branch === defaultBranch : 'false';
         const commitHash = github.context.sha;
 
         console.log(`🌿 Branch: ${branch}`);
