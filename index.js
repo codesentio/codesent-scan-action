@@ -101,11 +101,8 @@ async function run() {
 
         // 📦 Archive the proxy directory
         console.log(`📦 Zipping proxy directory '${proxyDirectory}'...`);
-        const zipPath = './proxy.zip';
-        const zip = new AdmZip();
-        zip.addLocalFolder(proxyDirectory);
-        zip.writeZip(zipPath);
-
+        const zipPath = await createZip(proxyDirectory);
+        
         // 🚀 Upload ZIP to CodeSent
         console.log('🚀 Uploading ZIP to CodeSent...');
         const formData = new FormData();
@@ -234,6 +231,14 @@ async function run() {
     } catch (error) {
         core.setFailed(`❌ Error: ${error.message}`);
     }
+}
+
+async function createZip(directory) {
+    const zipPath = './result.zip';
+    const zip = new AdmZip();
+    zip.addLocalFolder(directory);
+    zip.writeZip(zipPath);
+    return zipPath;
 }
 
 function handleApiError(error, action) {
