@@ -23,7 +23,7 @@ async function run() {
             ? github.context.payload.pull_request.head.ref 
             : github.context.ref.replace("refs/heads/", ""); 
         const defaultBranch = github.context.payload.repository.default_branch;
-        const isDefaultBranch = 'true' ? branch === defaultBranch : 'false';
+        const isDefaultBranch = branch === defaultBranch;
         const commitHash = github.context.sha;
 
         console.log(`🌿 Branch: ${branch}`);
@@ -42,7 +42,7 @@ async function run() {
         formData.append("file", fs.createReadStream(zipPath));
         formData.append("branch", branch);
         formData.append("commit_hash", commitHash);
-        formData.append("is_default_branch", isDefaultBranch);
+        formData.append("is_default_branch", isDefaultBranch.toString());
 
         const uploadResponse = await axios.post(
             "https://codesent.io/api/scan/v1/upload",
