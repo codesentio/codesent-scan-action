@@ -19,8 +19,9 @@ async function run() {
 
         const headers = { Authorization: `Bearer ${apiKey}` };
 
-        // 🏷️ Получаем текущую ветку и хэш коммита
-        const branch = github.context.ref.replace("refs/heads/", "");
+        const branch = github.context.payload.pull_request
+            ? github.context.payload.pull_request.head.ref 
+            : github.context.ref.replace("refs/heads/", ""); 
         const commitHash = github.context.sha;
 
         console.log(`🌿 Branch: ${branch}`);
@@ -97,7 +98,7 @@ async function run() {
             issueTitle = `🔍 CodeSent Scan Report for PR: "${context.payload.pull_request.title}"`;
         }
 
-        // 📝 Create GitHub Issue if this is a push to `main`
+        // 📝 Create GitHub Issue if this is a push
         if (context.eventName === 'push') {
             console.log(`📌 Creating GitHub Issue with scan results...`);
             await octokit.rest.issues.create({
@@ -118,7 +119,7 @@ async function run() {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: prNumber,
-                body: `🔍 **CodeSent Scan Completed**\n\n**Branch**: \`${branch}\`\n**Commit**: \`${commitHash}\`\n\n**Total Issues**: ${issueCount}\n\n**Severity Breakdown:**\n${severityText}\n📊 [View Full Report](${reportUrl})`
+                body: `🔍 **CodeSent Scan Completed**\n\n**Branch**: \`${branch}\`\n**Commit**: \`${commitHash}\`\n\n**Total Issues**: ${issueCount}\n\n**Severity Breakdown:**\n${severityText}\n\n📊 [View Full Report](${reportUrl})`
             });
             console.log('✅ Comment posted successfully!');
         }
