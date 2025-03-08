@@ -92,6 +92,12 @@ async function run() {
                 const statusResponse = await axios.post(`https://codesent.io/api/scan/v1/${proxyUuid}/${taskUuid}/status`, null, { headers });
                 status = statusResponse.data.status;
                 console.log(`🔄 Scan status: ${status}`);
+                
+                if (status === 'failed' || status === 'cancelled') {
+                    const reason = statusResponse.data.reason || "No reason provided";
+                    core.setFailed(`❌ Scan ${status.toUpperCase()}: ${reason}`);
+                    return;
+                }
             } while (status !== 'done');
         } catch (error) {
             handleApiError(error, "Polling for scan status failed");
