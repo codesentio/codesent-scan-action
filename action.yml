@@ -1,5 +1,5 @@
 name: "CodeSent Scan Action"
-description: "Uploads Apigee API proxies to CodeSent for security scanning and comments results in PR."
+description: "Uploads Apigee API proxies to CodeSent for security scanning"
 author: "Nikita Markevich @ CodeSent"
 
 inputs:
@@ -7,8 +7,12 @@ inputs:
     description: "CodeSent API Key"
     required: true
   github-token:
-    description: "GitHub Token for commenting on PR"
+    description: "GitHub Token for commenting on PR and creating issue"
     required: true
+  proxy-directory:
+    description: "Path to the Apigee proxy directory (default: apiproxy)"
+    required: false
+    default: "apiproxy"
 
 permissions:
   contents: read

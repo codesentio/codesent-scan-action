@@ -9,9 +9,11 @@ async function run() {
     try {
         const apiKey = core.getInput('api-key');
         const githubToken = core.getInput('github-token');
+        const proxyDirectory = core.getInput('proxy-directory') || 'apiproxy';
 
         console.log(`🔍 Received API Key: ${apiKey ? '✅ Key received' : '❌ Key missing'}`);
         console.log(`🔍 Received GitHub Token: ${githubToken ? '✅ Token received' : '❌ Token missing'}`);
+        console.log(`📂 Proxy Directory: ${proxyDirectory}`);
 
         if (!apiKey) {
             throw new Error("API Key is missing! Make sure 'CODESENT_API_KEY' is set in GitHub Secrets.");
@@ -30,11 +32,15 @@ async function run() {
         console.log(`🌿 Branch: ${branch}`);
         console.log(`🔗 Commit: ${commitHash}`);
 
-        // 📦 Archive the repo
-        console.log('📦 Zipping repository...');
+        if (!fs.existsSync(proxyDirectory)) {
+            throw new Error(`Proxy directory '${proxyDirectory}' not found!`);
+        }
+
+        // 📦 Archive the proxy directory
+        console.log(`📦 Zipping proxy directory '${proxyDirectory}'...`);
         const zipPath = './proxy.zip';
         const zip = new AdmZip();
-        zip.addLocalFolder('.');
+        zip.addLocalFolder(proxyDirectory);
         zip.writeZip(zipPath);
 
         // 🚀 Upload ZIP to CodeSent
