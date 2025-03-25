@@ -40,6 +40,7 @@ jobs:
         uses: codesent/codesent-scan-action@v1.0
         with:
           api-key: ${{ secrets.CODESENT_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           upload-type: "proxy" # Options: proxy, sharedflow, mask_config
           mask-file: "mask.xml" # Only required if using mask_config upload-type
 ```
